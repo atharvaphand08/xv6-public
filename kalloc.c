@@ -20,7 +20,8 @@ struct run {
 struct {
   struct spinlock lock;
   int use_lock;
-  struct run *freelist;
+  struct run *head;
+  struct run *tail;
 } kmem;
 
 // Initialization happens in two phases.
@@ -70,8 +71,15 @@ kfree(char *v)
   if(kmem.use_lock)
     acquire(&kmem.lock);
   r = (struct run*)v;
-  r->next = kmem.freelist;
-  kmem.freelist = r;
+  if(kmem.tail == NULL) {
+  	kmem.head = kmem.tail = r;
+  	r->next = NULL;
+  }
+  else {
+  	kmem.tail->next = r;
+  	kmem.tail = r;
+  	r->next = NULL;
+  }
   if(kmem.use_lock)
     release(&kmem.lock);
 }
@@ -86,9 +94,9 @@ kalloc(void)
 
   if(kmem.use_lock)
     acquire(&kmem.lock);
-  r = kmem.freelist;
+  r = kmem.head;
   if(r)
-    kmem.freelist = r->next;
+    kmem.head = r->next;
   if(kmem.use_lock)
     release(&kmem.lock);
   return (char*)r;
